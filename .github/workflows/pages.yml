@@ -1,5 +1,7 @@
 name: Publish GitHub Pages
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read
@@ -22,6 +24,7 @@ jobs:
       - run: npm test
       - run: npm run build:pages
         env:
+          NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${{ vars.NEXT_PUBLIC_GOOGLE_CLIENT_ID }}
           PAGES_BASE_PATH: /${{ github.event.repository.name }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

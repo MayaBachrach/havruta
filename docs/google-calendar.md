@@ -17,3 +17,11 @@ Reference:
 - https://developers.google.com/workspace/calendar/api/v3/reference/freebusy/query
 
 Acceptance check with a configured project: create a known busy event, propose an overlapping slot and one adjacent slot, verify conflict vs free, publish a single answer, verify only that answer changes in a second member's session, disconnect and confirm the private comparison disappears. Google end-to-end verification requires the operator's configured OAuth client and explicit consent.
+
+## Hosted GitHub Pages
+
+Use `https://mayabachrach.github.io` as the authorized JavaScript origin (no `/havruta/` path). Keep the app in Testing initially and add intended accounts as test users. Enable Google Calendar API in the same project as the OAuth client.
+
+Set the public client ID in GitHub Settings → Secrets and variables → Actions → Variables as `NEXT_PUBLIC_GOOGLE_CLIENT_ID`. This is an OAuth Web application identifier ending in `.apps.googleusercontent.com`, not an API key, access token or client secret. The Pages workflow injects it at build time. Run Publish GitHub Pages after changing the variable. No local npm commands are needed for the owner.
+
+In the personal Pages edition, free/busy is read directly from Google into memory. Saving a suggested answer updates this device only. The Google connection is disabled in fictional demo mode. Calendar content and tokens are never written to localStorage. Actual OAuth verification remains pending until an operator supplies a real client ID and a test user explicitly authorizes access.

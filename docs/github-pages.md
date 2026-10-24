@@ -4,7 +4,7 @@ The repository supports two separate builds. `npm run build` retains the Node/SQ
 
 The static edition never calls Havruta's API. It saves a personal profile, circles, plans, poll choices, checklist assignments and favorites in this browser's localStorage. A persistent banner explains the device-local behavior. Demo mode remains separate and is not saved. Clearing site storage removes personal data. Storage errors leave the current state unchanged and show an error. This is not cloud backup or recoverable authentication.
 
-GitHub Pages cannot run the SQLite server. Invitations, real group collaboration, remote chat and connected Google free/busy require the server edition. The static edition disables joining invitations and Google account connection; generated calendar files and calendar links still work. The app does not claim local changes reach friends.
+GitHub Pages cannot run the SQLite server. Invitations, real group collaboration, remote chat require the server edition. Google free/busy can run directly in the browser after the operator configures its OAuth client. The static edition disables joining invitations; generated calendar files and calendar links still work. The app does not claim local changes reach friends.
 
 ## Enable publication
 
@@ -12,4 +12,4 @@ GitHub Pages cannot run the SQLite server. Invitations, real group collaboration
 2. Open the repository's Settings → Pages and choose GitHub Actions as the source.
 3. Run the **Publish GitHub Pages** workflow from Actions. Its deployment result provides the authoritative site URL.
 
-Publication is manual so adding this workflow does not change repository visibility or unexpectedly publish private source. The generated artifact includes only static application assets, never `.env` files, SQLite databases or server API routes. On ordinary individual accounts the Pages website itself is public even if its source repository is private.
+After Pages activation, publication runs on pushes to main and can also be started manually. Repository visibility is an independent owner setting. The generated artifact includes only static application assets, never `.env` files, SQLite databases or server API routes. On ordinary individual accounts the Pages website itself is public even if its source repository is private.
