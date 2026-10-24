@@ -6,6 +6,10 @@ A Hebrew-first app for existing friends to turn “we should meet” into a plan
 
 End users should open the hosted application in a browser; no npm commands or environment files are required on their devices. A permanent hosted URL has not yet been provisioned. The instructions below are for developers and operators.
 
+## GitHub Pages (no installation for visitors)
+
+A separate personal, browser-local edition can be published with the **Publish GitHub Pages** workflow. See [setup and limitations](docs/github-pages.md). It supports planning and preparation on one device; real shared groups and chat require the server edition. Publication is currently blocked by the account’s private-repository Pages eligibility.
+
 ## Run locally
 
 Requires **Node 22.18+** (Node 24 also works).

@@ -17,3 +17,7 @@ data/
 .havruta-test/
 
 .preview-diagnostics.json
+
+.pages-build/
+playwright-report/
+test-results/

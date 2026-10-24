@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types --test tests/*.test.ts",
     "check": "npm run test && npm run typecheck && npm run build",
-    "test:smoke": "node tests/smoke.mjs"
+    "test:smoke": "node tests/smoke.mjs",
+    "build:pages": "node scripts/build-pages.mjs"
   },
   "dependencies": {
     "next": "^16.4.3",
