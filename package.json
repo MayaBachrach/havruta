@@ -1,12 +1,15 @@
 {
   "name": "havruta",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "check": "npm run test && npm run typecheck && npm run build",
+    "test:smoke": "node tests/smoke.mjs"
   },
   "dependencies": {
     "next": "^16.4.3",
@@ -20,6 +23,7 @@
     "@types/react-dom": "^19"
   },
   "engines": {
-    "node": ">=22"
-  }
+    "node": ">=22.18.0"
+  },
+  "type": "module"
 }

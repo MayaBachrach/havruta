@@ -1,0 +1,16 @@
+services:
+  havruta:
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-}
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      APP_ORIGIN: ${APP_ORIGIN:-http://localhost:3000}
+      HAVRUTA_DB_PATH: /app/data/havruta.sqlite
+    volumes:
+      - havruta-data:/app/data
+    restart: unless-stopped
+volumes:
+  havruta-data:

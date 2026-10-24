@@ -1,4 +1,3 @@
 import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {};
-export default nextConfig;
+const config: NextConfig = { output: "standalone", async headers() { return [{ source: "/:path*", headers: [{ key: "X-Content-Type-Options", value: "nosniff" }, { key: "Referrer-Policy", value: "no-referrer" }, { key: "X-Frame-Options", value: "DENY" }, { key: "Permissions-Policy", value: "geolocation=(), camera=(), microphone=()" }] }]; } };
+export default config;
