@@ -29,3 +29,5 @@ The managed production preview became accessible. On desktop, cloud-browser chec
 - The weekly agenda opens and the selected day's meetup is discoverable.
 
 Two defects were found: UUID creation failed in the insecure preview context, and a search query remained active when opening an unrelated meetup from the agenda. Both source fixes are included. UUID generation has dedicated tests; preview revalidation of the updated bundle is pending because the preview continued serving an older app chunk after rebuild/restart. No mobile, screen-reader, real OAuth or real geolocation browser pass is claimed.
+
+Final review also prevents overlapping snapshot requests (a response slower than the polling interval must not be starved by later requests), ignores failures from obsolete reads, and clears previous search text after successful proposal creation.
