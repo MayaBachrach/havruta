@@ -2,13 +2,19 @@
 
 A Hebrew-first app for existing friends to turn “we should meet” into a plan. Built with Next.js App Router, React, TypeScript and persistent SQLite. Includes a clearly separated interactive demo and real, server-backed group collaboration.
 
+## Shared pilot
+
+The shared pilot is live at https://havruta-maya-live.mayaba4.chatgpt.site. It supports private invitation-based circles, shared voting and chat, and optional ChatGPT sign-in for the same profile across devices. It is deployed through Sites with a persistent D1-backed, version-checked SQLite snapshot (2 MiB pilot limit). The Sites source repository is separate from this original Node/SQLite checkout. The GitHub Pages edition remains browser-local.
+
+Google Calendar is configured for both origins; Google test access is currently limited to the operator account. Calendar authorization is separate from ChatGPT sign-in.
+
 ## Using Havruta
 
-End users should open the hosted application in a browser; no npm commands or environment files are required on their devices. A permanent hosted URL has not yet been provisioned. The instructions below are for developers and operators.
+End users should open the hosted application in a browser; no npm commands or environment files are required on their devices. The shared pilot URL above is available for browser and phone testing. The instructions below are for developers and operators.
 
 ## GitHub Pages (no installation for visitors)
 
-A separate personal, browser-local edition can be published with the **Publish GitHub Pages** workflow. See [setup and limitations](docs/github-pages.md). It supports planning and preparation on one device; real shared groups and chat require the server edition. Publication is currently blocked by the account’s private-repository Pages eligibility.
+A separate personal, browser-local edition can be published with the **Publish GitHub Pages** workflow. See [setup and limitations](docs/github-pages.md). It supports planning and preparation on one device; real shared groups and chat require the server edition. The personal edition is published at https://mayabachrach.github.io/havruta/.
 
 ## Run locally
 
