@@ -1,3 +1,4 @@
+import { checklistTemplate } from './checklist.ts';
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync, chmodSync } from 'node:fs';
 import { dirname } from 'node:path';
@@ -30,6 +31,7 @@ export class Store {
       CREATE TABLE IF NOT EXISTS slots(id TEXT PRIMARY KEY, plan TEXT REFERENCES plans(id) ON DELETE CASCADE, start INTEGER, end INTEGER);
       CREATE TABLE IF NOT EXISTS votes(slot TEXT REFERENCES slots(id) ON DELETE CASCADE, user TEXT REFERENCES users(id), vote TEXT CHECK(vote IN ('yes','maybe','no')), PRIMARY KEY(slot,user));
       CREATE TABLE IF NOT EXISTS attendance(plan TEXT REFERENCES plans(id) ON DELETE CASCADE, user TEXT REFERENCES users(id), response TEXT CHECK(response IN ('yes','maybe','no')), PRIMARY KEY(plan,user));
+      CREATE TABLE IF NOT EXISTS checklist(id TEXT PRIMARY KEY,plan TEXT REFERENCES plans(id) ON DELETE CASCADE,text TEXT NOT NULL,creator TEXT REFERENCES users(id),claimed TEXT REFERENCES users(id),done INTEGER NOT NULL DEFAULT 0);
       CREATE TABLE IF NOT EXISTS messages(id INTEGER PRIMARY KEY AUTOINCREMENT, plan TEXT REFERENCES plans(id) ON DELETE CASCADE, author TEXT REFERENCES users(id), text TEXT, created INTEGER);
       CREATE TABLE IF NOT EXISTS favorites(id TEXT PRIMARY KEY, user TEXT REFERENCES users(id), name TEXT NOT NULL, vibe TEXT NOT NULL, UNIQUE(user,name));
       CREATE TABLE IF NOT EXISTS operations(user TEXT REFERENCES users(id), key TEXT, fingerprint TEXT, result TEXT, created INTEGER, PRIMARY KEY(user,key));
@@ -89,7 +91,7 @@ export class Store {
     const me = this.row('SELECT id,name FROM users WHERE id=?', user)!;
     const circles: Circle[] = this.rows('SELECT c.* FROM circles c JOIN members m ON m.circle=c.id WHERE m.user=? ORDER BY c.rowid DESC', user).map(c => {
       const members = this.rows('SELECT u.id,u.name,m.place,m.until,m.area FROM members m JOIN users u ON u.id=m.user WHERE m.circle=? ORDER BY u.created', c.id).map(m => ({ id: String(m.id), name: String(m.name), owner: m.id === c.owner, place: m.place as string | null, area: m.area?JSON.parse(String(m.area)):null, until: m.until as number | null }));
-      const plans: Plan[] = this.rows('SELECT * FROM plans WHERE circle=? ORDER BY created DESC LIMIT 50', c.id).map(p => ({ id: String(p.id), title: String(p.title), description:String(p.description||''),revision:Number(p.revision||0),updated:Number(p.updated||p.created), place: String(p.place), vibe: String(p.vibe), creator: String(p.creator), created: Number(p.created), confirmed: p.confirmed as string | null, cancelled: !!p.cancelled, attendance: Object.fromEntries(this.rows('SELECT a.user,a.response FROM attendance a JOIN members m ON m.user=a.user AND m.circle=? WHERE plan=?',c.id,p.id).map(a=>[a.user,a.response])) as Record<string, Vote>, chatExpires: this.expires(p), slots: this.rows('SELECT * FROM slots WHERE plan=? ORDER BY start', p.id).map(s => ({ id: String(s.id), start: Number(s.start), end: Number(s.end), votes: Object.fromEntries(this.rows('SELECT v.user,v.vote FROM votes v JOIN members m ON m.user=v.user AND m.circle=? WHERE slot=?', c.id, s.id).map(v => [v.user, v.vote])) as Record<string, Vote> })), messages: this.rows('SELECT * FROM (SELECT m.id,m.author,u.name,m.text,m.created FROM messages m JOIN users u ON u.id=m.author WHERE m.plan=? ORDER BY m.id DESC LIMIT 100) ORDER BY id', p.id).map(m => ({ id: Number(m.id), author: String(m.author), name: String(m.name), text: String(m.text), created: Number(m.created) })) }));
+      const plans: Plan[] = this.rows('SELECT * FROM plans WHERE circle=? ORDER BY created DESC LIMIT 50', c.id).map(p => ({ id: String(p.id), title: String(p.title), description:String(p.description||''),revision:Number(p.revision||0),updated:Number(p.updated||p.created), place: String(p.place), vibe: String(p.vibe), creator: String(p.creator), created: Number(p.created), confirmed: p.confirmed as string | null, cancelled: !!p.cancelled, attendance: Object.fromEntries(this.rows('SELECT a.user,a.response FROM attendance a JOIN members m ON m.user=a.user AND m.circle=? WHERE plan=?',c.id,p.id).map(a=>[a.user,a.response])) as Record<string, Vote>, chatExpires: this.expires(p), slots: this.rows('SELECT * FROM slots WHERE plan=? ORDER BY start', p.id).map(s => ({ id: String(s.id), start: Number(s.start), end: Number(s.end), votes: Object.fromEntries(this.rows('SELECT v.user,v.vote FROM votes v JOIN members m ON m.user=v.user AND m.circle=? WHERE slot=?', c.id, s.id).map(v => [v.user, v.vote])) as Record<string, Vote> })), checklist:this.rows('SELECT * FROM checklist WHERE plan=? ORDER BY rowid',p.id).map(item=>({id:String(item.id),text:String(item.text),creator:String(item.creator),claimed:item.claimed as string|null,done:!!item.done})), messages: this.rows('SELECT * FROM (SELECT m.id,m.author,u.name,m.text,m.created FROM messages m JOIN users u ON u.id=m.author WHERE m.plan=? ORDER BY m.id DESC LIMIT 100) ORDER BY id', p.id).map(m => ({ id: Number(m.id), author: String(m.author), name: String(m.name), text: String(m.text), created: Number(m.created) })) }));
       return { id: String(c.id), name: String(c.name), owner: String(c.owner), invite: c.owner === user ? String(c.invite) : '', members, plans };
     });
     return { me: { id: String(me.id), name: String(me.name) }, circles, favorites: this.rows("SELECT id,name,vibe FROM favorites WHERE user=? ORDER BY rowid DESC", user).map(f => ({id: String(f.id), name: String(f.name), vibe: String(f.vibe)})) };
@@ -105,6 +107,8 @@ export class Store {
       this.run('DELETE FROM favorites WHERE user=?',user);
       this.run('DELETE FROM operations WHERE user=?',user);
       this.run('DELETE FROM limits WHERE key IN (?,?)',`user:${user}`,`chat:${user}`);
+      this.run('UPDATE checklist SET claimed=NULL,done=0 WHERE claimed=?',user);
+      this.run('DELETE FROM checklist WHERE creator=?',user);
       this.run('DELETE FROM users WHERE id=?',user);
     });
   }
@@ -135,6 +139,7 @@ export class Store {
           if (this.row('SELECT owner FROM circles WHERE id=?', c)?.owner !== user || target === user) throw new AppError('רק מנהלת הקבוצה יכולה להסיר חברים אחרים.',403);
           this.run('DELETE FROM votes WHERE user=? AND slot IN (SELECT s.id FROM slots s JOIN plans p ON p.id=s.plan WHERE p.circle=?)',target,c);
           this.run('DELETE FROM attendance WHERE user=? AND plan IN (SELECT id FROM plans WHERE circle=?)',target,c);
+          this.run('UPDATE checklist SET claimed=NULL,done=0 WHERE claimed=? AND plan IN (SELECT id FROM plans WHERE circle=?)',target,c);
           this.run('DELETE FROM members WHERE circle=? AND user=?',c,target); break;
         }
         case 'profile': this.run('UPDATE users SET name=? WHERE id=?', text(data.name, 30), user); break;
@@ -163,6 +168,7 @@ export class Store {
           if (this.row('SELECT owner FROM circles WHERE id=?', c)?.owner === user) throw new AppError('מנהלת הקבוצה יכולה למחוק את הקבוצה בהגדרות.');
           this.run('DELETE FROM votes WHERE user=? AND slot IN (SELECT s.id FROM slots s JOIN plans p ON p.id=s.plan WHERE p.circle=?)', user, c);
           this.run('DELETE FROM attendance WHERE user=? AND plan IN (SELECT id FROM plans WHERE circle=?)',user,c);
+          this.run('UPDATE checklist SET claimed=NULL,done=0 WHERE claimed=? AND plan IN (SELECT id FROM plans WHERE circle=?)',user,c);
           this.run('DELETE FROM members WHERE circle=? AND user=?', c, user); break;
         }
         case 'deleteCircle': {
@@ -196,6 +202,43 @@ export class Store {
           this.run('INSERT INTO plans(id,circle,title,place,vibe,creator,created,description,updated) VALUES(?,?,?,?,?,?,?,?,?)', id, c, text(data.title), text(data.place), text(data.vibe, 30), user, created,description,created);
           for (const s of slots) { const sid = randomUUID(); this.run('INSERT INTO slots VALUES(?,?,?,?)', sid, id, s.start, s.end); this.run('INSERT INTO votes VALUES(?,?,?)', sid, user, 'yes'); }
           return { plan: id };
+        }
+        case 'checklistTemplate': {
+          const p=this.plan(user,data.plan);
+          if(p.cancelled||this.expires(p)<=Date.now())throw new AppError('המפגש הסתיים. הרשימה סגורה.',409);
+          const template=checklistTemplate(data.template);
+          if(!template)throw new AppError('התבנית לא נמצאה.');
+          const existing=this.rows('SELECT text FROM checklist WHERE plan=?',p.id);
+          const names=new Set(existing.map(item=>String(item.text).trim()));
+          const additions=template.filter(name=>!names.has(name));
+          if(existing.length+additions.length>30)throw new AppError('אין מספיק מקום ברשימה לתבנית. אפשר להוסיף עד 30 פריטים.');
+          for(const name of additions)this.run('INSERT INTO checklist(id,plan,text,creator) VALUES(?,?,?,?)',randomUUID(),p.id,name,user);
+          return {added:additions.length};
+        }
+        case 'addItem': {
+          const p=this.plan(user,data.plan);
+          if(p.cancelled||this.expires(p)<=Date.now())throw new AppError('המפגש הסתיים. הרשימה סגורה.',409);
+          if(Number(this.row('SELECT count(*) n FROM checklist WHERE plan=?',p.id)?.n)>=30)throw new AppError('אפשר להוסיף עד 30 פריטים למפגש.');
+          const id=randomUUID();this.run('INSERT INTO checklist(id,plan,text,creator) VALUES(?,?,?,?)',id,p.id,text(data.text,120),user);return {item:id};
+        }
+        case 'claimItem': case 'completeItem': case 'deleteItem': {
+          const p=this.plan(user,data.plan);
+          if(p.cancelled||this.expires(p)<=Date.now())throw new AppError('המפגש הסתיים. הרשימה סגורה.',409);
+          const item=this.row('SELECT * FROM checklist WHERE id=? AND plan=?',text(data.item),p.id);
+          if(!item)throw new AppError('הפריט לא נמצא.',404);
+          if(data.action==='deleteItem'){
+            if(item.creator!==user&&p.creator!==user)throw new AppError('רק מי שהוסיף את הפריט או יוצר המפגש יכולים להסיר אותו.',403);
+            this.run('DELETE FROM checklist WHERE id=?',item.id);break;
+          }
+          if(item.claimed&&item.claimed!==user)throw new AppError('חבר אחר כבר לקח את הפריט. הרשימה עודכנה; בחרו פריט אחר.',409);
+          if(data.action==='claimItem'){
+            if(data.release===true)this.run('UPDATE checklist SET claimed=NULL,done=0 WHERE id=?',item.id);
+            else this.run('UPDATE checklist SET claimed=? WHERE id=?',user,item.id);
+          }else{
+            if(typeof data.done!=='boolean')throw new AppError('מצב לא תקין.');
+            this.run('UPDATE checklist SET claimed=?,done=? WHERE id=?',user,data.done?1:0,item.id);
+          }
+          break;
         }
         case 'editPlan': {
           const p=this.plan(user,data.plan);

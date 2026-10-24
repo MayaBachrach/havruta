@@ -17,10 +17,11 @@
     "react-dom": "^19.3.0"
   },
   "devDependencies": {
-    "typescript": "^5",
+    "@playwright/test": "1.62.1",
     "@types/node": "^22",
     "@types/react": "^19",
-    "@types/react-dom": "^19"
+    "@types/react-dom": "^19",
+    "typescript": "^5"
   },
   "engines": {
     "node": ">=22.18.0"

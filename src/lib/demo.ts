@@ -11,8 +11,8 @@ export function demoSnapshot(): Snapshot {
     { id: 'shani', name: 'שני', owner: false, place: null, until: null },
   ], plans: [{ id: 'coffee', title: 'קפה, ופשוט להיות יחד', description:'כל אחד מביא סיפור קטן מהשבוע. אין צורך להביא כלום חוץ מעצמכם.',revision:0,updated:0, place: 'בית הקפה ליד הקמפוס', vibe: 'קפה', creator: 'maya', created: Date.now(), confirmed: null, cancelled: false, attendance: {}, chatExpires: Date.now() + 7 * 24 * HOUR,
     slots: [{ id: 'one', start, end: start + HOUR, votes: { maya: 'yes', ofir: 'yes', noa: 'yes', daniel: 'maybe' } }, { id: 'two', start: start + 24 * HOUR, end: start + 25 * HOUR, votes: { maya: 'yes', ofir: 'no', noa: 'yes', shani: 'yes' } }],
-    messages: [{ id: 1, author: 'noa', name: 'נועה', text: 'כל כך צריכה את הקפה הזה ☕', created: Date.now() - 600000 }, { id: 2, author: 'ofir', name: 'אופיר', text: 'אני מביא קלפים. שלא תגידו שלא הזהרתי.', created: Date.now() - 300000 }] },
+    checklist:[{id:'cards',text:'קלפים או משחק קטן',creator:'ofir',claimed:'ofir',done:false},{id:'blanket',text:'משהו קטן לנשנש',creator:'maya',claimed:null,done:false}],messages: [{ id: 1, author: 'noa', name: 'נועה', text: 'כל כך צריכה את הקפה הזה ☕', created: Date.now() - 600000 }, { id: 2, author: 'ofir', name: 'אופיר', text: 'אני מביא קלפים. שלא תגידו שלא הזהרתי.', created: Date.now() - 300000 }] },
     { id: 'sunset', title: 'תופסים שקיעה', description:'נביא שמיכה ומשהו קטן לנשנש.',revision:0,updated:0, place: 'הטיילת', vibe: 'בחוץ', creator: 'noa', created: Date.now(), confirmed: 'sun', cancelled: false, attendance: {}, chatExpires: start + 3 * 24 * HOUR,
-      slots: [{ id: 'sun', start: start + 48 * HOUR, end: start + 49 * HOUR, votes: { maya: 'yes', noa: 'yes', shani: 'yes' } }], messages: [] }]
+      slots: [{ id: 'sun', start: start + 48 * HOUR, end: start + 49 * HOUR, votes: { maya: 'yes', noa: 'yes', shani: 'yes' } }], checklist:[{id:'mat',text:'מחצלת',creator:'noa',claimed:'noa',done:false},{id:'water',text:'בקבוקי מים',creator:'noa',claimed:null,done:false}],messages: [] }]
   }] };
 }

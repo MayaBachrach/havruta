@@ -151,3 +151,48 @@ test('overlong descriptions fail atomically without changing the revision',()=>{
  const {s,a,plan}=setup();assert.throws(()=>s.action(a.id,{action:'editPlan',plan,title:'title',place:'place',description:'x'.repeat(501),revision:0}),AppError);
  assert.equal(s.snapshot(a.id).circles[0].plans[0].revision,0);s.db.close();
 });
+test('checklist claims are exclusive and other members cannot overwrite completion',()=>{
+ const {s,a,b,stranger,plan}=setup();
+ const {item}=s.action(a.id,{action:'addItem',plan,text:'מחצלת'}) as {item:string};
+ s.action(b.id,{action:'claimItem',plan,item});
+ assert.throws(()=>s.action(a.id,{action:'claimItem',plan,item}),(e:unknown)=>e instanceof AppError&&e.status===409);
+ assert.throws(()=>s.action(a.id,{action:'completeItem',plan,item,done:true}),AppError);
+ assert.throws(()=>s.action(stranger.id,{action:'claimItem',plan,item}),AppError);
+ s.action(b.id,{action:'completeItem',plan,item,done:true});assert.equal(s.snapshot(a.id).circles[0].plans[0].checklist[0].done,true);
+ s.action(b.id,{action:'claimItem',plan,item,release:true});const released=s.snapshot(a.id).circles[0].plans[0].checklist[0];assert.equal(released.claimed,null);assert.equal(released.done,false);s.db.close();
+});
+test('member removal releases checklist responsibility and closed meetups reject changes',()=>{
+ const {s,a,b,circle,plan}=setup();
+ const {item}=s.action(b.id,{action:'addItem',plan,text:'מים'}) as {item:string};s.action(b.id,{action:'claimItem',plan,item});
+ s.action(a.id,{action:'removeMember',circle,user:b.id});assert.equal(s.snapshot(a.id).circles[0].plans[0].checklist[0].claimed,null);
+ s.action(a.id,{action:'cancel',plan});assert.throws(()=>s.action(a.id,{action:'addItem',plan,text:'מאוחר'}),AppError);s.db.close();
+});
+test('profile deletion removes authored checklist items and releases claims in other meetups',()=>{
+ const {s,a,b,plan}=setup();const other=s.action(b.id,{action:'createCircle',name:'אחרת'}) as {circle:string};
+ s.action(a.id,{action:'join',invite:s.snapshot(b.id).circles.find(c=>c.id===other.circle)!.invite});
+ const start=Date.now()+HOUR;const {plan:otherPlan}=s.action(b.id,{action:'createPlan',circle:other.circle,title:'ערב',place:'קמפוס',vibe:'אחר',slots:[{start,end:start+HOUR}]}) as {plan:string};
+ const {item}=s.action(b.id,{action:'addItem',plan:otherPlan,text:'משחק'}) as {item:string};s.action(a.id,{action:'claimItem',plan:otherPlan,item});
+ s.action(a.id,{action:'addItem',plan:otherPlan,text:'פריט שלי'});s.deleteProfile(a.id);
+ const items=s.snapshot(b.id).circles[0].plans[0].checklist;assert.equal(items.length,1);assert.equal(items[0].claimed,null);s.db.close();
+});
+
+test('checklist templates preserve claims, deduplicate and require membership',()=>{
+ const {s,a,b,stranger,plan}=setup();
+ const first=s.action(a.id,{action:'checklistTemplate',plan,template:'picnic',requestId:'template-1'});
+ assert.equal(first.added,4);
+ const item=s.snapshot(a.id).circles[0].plans[0].checklist[0];
+ s.action(b.id,{action:'claimItem',plan,item:item.id});
+ assert.equal(s.action(a.id,{action:'checklistTemplate',plan,template:'picnic'}).added,0);
+ assert.deepEqual(s.action(a.id,{action:'checklistTemplate',plan,template:'picnic',requestId:'template-1'}),first);
+ assert.equal(s.snapshot(a.id).circles[0].plans[0].checklist[0].claimed,b.id);
+ assert.throws(()=>s.action(stranger.id,{action:'checklistTemplate',plan,template:'games'}),AppError);
+ assert.throws(()=>s.action(a.id,{action:'checklistTemplate',plan,template:'toString'}),AppError);
+ s.action(a.id,{action:'cancel',plan});
+ assert.throws(()=>s.action(a.id,{action:'checklistTemplate',plan,template:'dinner'}),AppError);s.db.close();
+});
+test('a template exceeding checklist capacity leaves the entire list unchanged',()=>{
+ const {s,a,plan}=setup();
+ for(let i=0;i<28;i++)s.action(a.id,{action:'addItem',plan,text:`item ${i}`});
+ assert.throws(()=>s.action(a.id,{action:'checklistTemplate',plan,template:'picnic'}),AppError);
+ assert.equal(s.snapshot(a.id).circles[0].plans[0].checklist.length,28);s.db.close();
+});

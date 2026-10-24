@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readStorage,writeStorage,removeStorage,parsePlanDraft } from '../src/lib/browser-storage.ts';
 import { matchingPlans,nextActions,overlappingPlans } from '../src/lib/usability.ts';
 import type { Circle,Plan } from '../src/lib/types.ts';
-const plan:Plan={id:'p',title:'קָפֶה ביחד',description:'',revision:0,updated:0,place:'הטיילת',vibe:'קפה',creator:'a',created:0,confirmed:'s',cancelled:false,attendance:{},chatExpires:1000,slots:[{id:'s',start:100,end:200,votes:{a:'yes'}}],messages:[]};
+const plan:Plan={id:'p',title:'קָפֶה ביחד',description:'',revision:0,updated:0,place:'הטיילת',vibe:'קפה',creator:'a',created:0,confirmed:'s',cancelled:false,attendance:{},chatExpires:1000,slots:[{id:'s',start:100,end:200,votes:{a:'yes'}}],checklist:[],messages:[]};
 const circle:Circle={id:'c',name:'חברים',owner:'a',invite:'',members:[],plans:[plan]};
 test('denied or full browser storage cannot crash theme or draft flows',()=>{
  assert.equal(readStorage({getItem(){throw new Error('denied')}},'x'),null);

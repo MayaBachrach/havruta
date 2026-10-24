@@ -2,6 +2,10 @@
 
 A Hebrew-first app for existing friends to turn “we should meet” into a plan. Built with Next.js App Router, React, TypeScript and persistent SQLite. Includes a clearly separated interactive demo and real, server-backed group collaboration.
 
+## Using Havruta
+
+End users should open the hosted application in a browser; no npm commands or environment files are required on their devices. A permanent hosted URL has not yet been provisioned. The instructions below are for developers and operators.
+
 ## Run locally
 
 Requires **Node 22.18+** (Node 24 also works).
@@ -22,6 +26,9 @@ npm start
 ```
 
 ## Working features
+
+- Shared meetup checklist with exclusive responsibility, completion status and picnic/dinner/game-night templates. Applying a template preserves existing items and assignments and never duplicates exact matching entries.
+- Refreshed forest-green visual system, compact expandable meetup cards, a next-meetup home view and mobile access to settings/profile.
 
 - Research-led usability pass: per-tab proposal drafts, Hebrew-friendly search, personal response shortcuts, cross-circle conflict warnings, larger targets and explicit sync status.
 - Optional meetup notes and revision-guarded creator editing; a confirmed venue change resets attendance for explicit reconfirmation.
