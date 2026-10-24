@@ -16,14 +16,15 @@ try{
  assert.equal((await call('b',{action:'register',name:'נועה בדיקה'})).status,200);
  let r=await call('a',{action:'createCircle',name:'חברותא לבדיקה'});assert.equal(r.status,200,JSON.stringify(r));const circle=r.circle,invite=r.snapshot.circles[0].invite;
  assert.equal((await call('b',{action:'join',invite})).status,200);
- const start=Date.now()+3600000;r=await call('a',{action:'createPlan',circle,title:'קפה בדיקה',place:'קמפוס',vibe:'קפה',slots:[{start,end:start+3600000}]});assert.equal(r.status,200,JSON.stringify(r));
- const p=r.snapshot.circles[0].plans[0],plan=p.id,slot=p.slots[0].id;
+ const start=Date.now()+3600000;const create={action:'createPlan',circle,title:'קפה בדיקה',place:'קמפוס',vibe:'קפה',requestId:'smoke-idempotency',slots:[{start,end:start+3600000}]};r=await call('a',create);assert.equal(r.status,200,JSON.stringify(r));
+ const p=r.snapshot.circles[0].plans[0],plan=p.id,slot=p.slots[0].id;const replay=await call('a',create);assert.equal(replay.snapshot.circles[0].plans.length,1);assert.equal(replay.plan,plan);
  assert.equal((await call('x',{action:'message',plan,text:'unauthorized'})).status,401);
  assert.equal((await call('b',{action:'message',plan,text:'שלום מהדפדפן השני'})).status,200);
  assert.equal((await call('a')).circles[0].plans[0].messages[0].text,'שלום מהדפדפן השני');
  assert.equal((await call('a',{action:'vote',plan,slot,vote:'yes'},'https://evil.invalid')).status,403);
  assert.equal((await call('b',{action:'confirm',plan,slot})).status,403);
  assert.equal((await call('a',{action:'confirm',plan,slot})).status,200);
- assert.equal((await call('a',{action:'deleteCircle',circle})).status,200);
- console.log('HTTP smoke passed: two sessions, join, shared chat, auth, CSRF, creator controls, cascade deletion.');
+ assert.equal((await call('b',{action:'attendance',plan,response:'yes'})).status,200);assert.equal((await call('a',{action:'presence',circle,area:{lat:32.081234,lon:34.791234}})).status,200);assert.equal((await call('b')).circles[0].members.find(m=>m.id===r.snapshot.me.id).area.lat,32.08);assert.equal(Object.values((await call('a')).circles[0].plans[0].attendance)[0],'yes');
+ assert.equal((await call('a',{action:'deleteProfile'})).status,200);assert.equal((await call('a')).me,null);assert.equal((await call('b')).circles.length,0);
+ console.log('HTTP smoke passed: two sessions, join, shared chat, auth, CSRF, creator controls, attendance, coarse location, retry deduplication and profile deletion.');
 }finally{server.kill('SIGTERM');await new Promise(resolve=>{server.once('exit',resolve);setTimeout(resolve,3000)});rmSync(dir,{recursive:true,force:true});}

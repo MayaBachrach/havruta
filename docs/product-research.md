@@ -19,7 +19,7 @@ Sources:
 1. A real shared data model before adding decorative features. One person's vote cannot overwrite someone else's.
 2. A short path: circle → proposal → votes → final time → calendar.
 3. Temporary meetup chat to reduce the need for yet another permanent group.
-4. Explicit, time-limited check-ins at a named place. Suggestions explain exactly why they appeared and require someone to create the plan. No background location assumptions.
+4. Explicit, time-limited check-ins at a named place, or separately consented one-shot coarse-area sharing. Suggestions explain exactly why they appeared and require someone to create the plan. No background location assumptions; raw device coordinates are rounded before transmission.
 5. Google free/busy as private decision support; individual answers are only shared after a click.
 6. A warm Hebrew UI with real empty states, plus a labeled demo that does not pretend fictional friends are online.
 
@@ -29,4 +29,4 @@ Test with three friend circles for a week. Measure proposal-to-confirmation time
 
 ## Next engineering milestones
 
-Recoverable accounts and device transfer; abuse reporting; opt-in notifications; calendar multiple-selection and revalidation before finalizing; scheduled retention cleanup; shared Postgres for horizontal hosting; durable audit/operations without storing private message bodies in logs.
+Recoverable accounts and device transfer; abuse reporting; opt-in notifications; calendar multiple-selection and revalidation before finalizing; monitoring of retention cleanup; shared Postgres for horizontal hosting; durable audit/operations without storing private message bodies in logs.

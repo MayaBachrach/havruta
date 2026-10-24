@@ -1,0 +1,18 @@
+'use client';
+import {useState,type FormEvent} from 'react';
+import type {Circle} from '@/lib/types';
+import {HOUR} from '@/lib/planning';
+import {toLocal,icons} from '@/lib/presentation';
+export default function PlanForm({ circle, place, pending, onSubmit }: { circle: Circle; place: string; pending: boolean; onSubmit: (input: Record<string, unknown>) => Promise<void> }) {
+  const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1); tomorrow.setHours(18, 0, 0, 0);
+  if (place) tomorrow.setTime(Math.ceil((Date.now() + 15 * 60000) / 300000) * 300000);
+  const [title, setTitle] = useState(''), [where, setWhere] = useState(place), [vibe, setVibe] = useState('קפה'), [duration, setDuration] = useState(60), [slots, setSlots] = useState([toLocal(tomorrow.getTime())]), [error, setError] = useState('');
+  async function submit(e: FormEvent) {
+    e.preventDefault(); setError('');
+    const times = slots.map(s => new Date(s).getTime());
+    if (times.some(s => !Number.isFinite(s) || s < Date.now() + 60000 || s > Date.now() + 90 * 24 * HOUR)) { setError('בחרו שעות עתידיות ב־90 הימים הקרובים.'); return; }
+    if (new Set(times).size !== times.length) { setError('יש שתי הצעות באותה שעה. בחרו שעות שונות.'); return; }
+    try { await onSubmit({ title: title.trim(), place: where.trim(), vibe, slots: times.map(start => ({ start, end: start + duration * 60000 })) }); } catch {}
+  }
+  return <form onSubmit={submit}><p className="sub">הצעה חדשה ב״{circle.name}״. צ׳אט זמני נפתח אוטומטית, וכל חבר בוחר מה מתאים לו.</p><label htmlFor="plan-title">מה עושים?</label><input id="plan-title" placeholder="קפה של סוף היום, ערב משחקים…" value={title} onChange={e => setTitle(e.target.value)} maxLength={80} required autoFocus/><div className="vibes" aria-label="סוג המפגש">{Object.entries(icons).map(([key, icon]) => <button type="button" className={vibe === key ? 'selected' : ''} aria-pressed={vibe === key} onClick={() => setVibe(key)} key={key}>{icon} {key}</button>)}</div><label htmlFor="plan-place">איפה נפגשים?</label><input id="plan-place" placeholder="מקום, שכונה או כתובת" value={where} onChange={e => setWhere(e.target.value)} maxLength={80} required/><div className="line"><label htmlFor="duration">כמה זמן מפנים לזה?</label><select id="duration" value={duration} onChange={e => setDuration(Number(e.target.value))}>{[[30, 'חצי שעה'], [60, 'שעה'], [90, 'שעה וחצי'], [120, 'שעתיים'], [180, 'שלוש שעות']].map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div><h3>מתי נוח? מציעים, ואז מצביעים.</h3><p className="micro">לפי אזור הזמן במכשיר שלך: {Intl.DateTimeFormat().resolvedOptions().timeZone}</p>{slots.map((s, i) => <div className="slot-input" key={i}><label className="sr-only" htmlFor={`date-${i}`}>הצעת זמן {i + 1}</label><input id={`date-${i}`} type="datetime-local" value={s} min={toLocal(Date.now() + 120000)} max={toLocal(Date.now() + 90 * 24 * HOUR)} required onChange={e => setSlots(slots.map((value, index) => index === i ? e.target.value : value))}/>{slots.length > 1 && <button className="icon-button" type="button" aria-label={`הסרת הצעת זמן ${i + 1}`} onClick={() => setSlots(slots.filter((_, index) => index !== i))}>×</button>}</div>)}{slots.length < 5 && <button className="text-button" type="button" onClick={() => setSlots([...slots, toLocal(new Date(slots.at(-1)!).getTime() + 24 * HOUR)])}>＋ עוד אפשרות</button>}{error && <p className="error" role="alert">{error}</p>}<button className="button primary full" disabled={pending || !title.trim() || !where.trim()}>{pending ? 'יוצרים…' : 'פותחים מפגש וצ׳אט ←'}</button></form>;
+}

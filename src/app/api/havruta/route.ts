@@ -30,6 +30,12 @@ export async function POST(req: NextRequest) {
       res.cookies.set(cookieName, registration.token, { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', path: '/', maxAge: 2592000 });
       return res;
     }
+    if(data.action==='deleteProfile') {
+      if(me)s.deleteProfile(String(me.id));
+      const res=response({snapshot:null});
+      res.cookies.set(cookieName,'',{httpOnly:true,sameSite:'lax',secure:process.env.NODE_ENV==='production',path:'/',maxAge:0});
+      return res;
+    }
     if (!me) throw new AppError('צריך להיכנס קודם.', 401);
     const result = s.action(String(me.id), data);
     return response({ ...result, snapshot: s.snapshot(String(me.id)) });

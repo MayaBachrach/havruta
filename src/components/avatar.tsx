@@ -1,0 +1,1 @@
+export default function Avatar({ name, index = 0, small = false }: { name: string; index?: number; small?: boolean }) { return <span className={`avatar tone-${index % 5} ${small ? 'small' : ''}`} aria-hidden="true">{name[0]}</span>; }

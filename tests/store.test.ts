@@ -1,5 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {mkdtempSync,rmSync,statSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
 import { AppError, Store } from '../src/lib/store.ts';
 import { HOUR } from '../src/lib/planning.ts';
 function setup() {
@@ -73,4 +76,55 @@ test('only owner can remove another member and access is revoked immediately',()
 test('expired guest sessions no longer authenticate',()=>{
  const s=new Store(':memory:'),a=s.register('test');s.run('UPDATE users SET created=? WHERE id=?',Date.now()-31*24*HOUR,a.id);
  assert.equal(s.identify(a.token),undefined);s.db.close();
+});
+test('attendance is explicit, membership scoped and distinct from availability votes',()=>{
+ const {s,a,b,stranger,plan,slot,circle}=setup();
+ assert.throws(()=>s.action(b.id,{action:'attendance',plan,response:'yes'}),AppError);
+ s.action(a.id,{action:'confirm',plan,slot});
+ assert.deepEqual(s.snapshot(a.id).circles[0].plans[0].attendance,{});
+ s.action(b.id,{action:'attendance',plan,response:'no'});
+ assert.equal(s.snapshot(a.id).circles[0].plans[0].attendance[b.id],'no');
+ assert.throws(()=>s.action(stranger.id,{action:'attendance',plan,response:'yes'}),AppError);
+ s.action(a.id,{action:'removeMember',circle,user:b.id});
+ assert.equal(s.row('SELECT count(*) n FROM attendance')!.n,0);s.db.close();
+});
+test('idempotent retries create only one record and reject reuse for different actions',()=>{
+ const s=new Store(':memory:'),a=s.register('מאיה');
+ const request={action:'createCircle',name:'פעם אחת',requestId:'unique-operation-1'};
+ const first=s.action(a.id,request),second=s.action(a.id,request);
+ assert.deepEqual(second,first);assert.equal(s.snapshot(a.id).circles.length,1);
+ assert.throws(()=>s.action(a.id,{...request,name:'changed'}),(e:unknown)=>e instanceof AppError&&e.status===409);
+ s.db.close();
+});
+test('profile deletion removes authored content and owned groups, preserving other accounts',()=>{
+ const {s,a,b,circle,plan,slot}=setup();
+ const other=s.action(b.id,{action:'createCircle',name:'קבוצה שנייה'}) as {circle:string};
+ const invite=s.snapshot(b.id).circles.find(c=>c.id===other.circle)!.invite;
+ s.action(a.id,{action:'join',invite});
+ s.action(a.id,{action:'message',plan,text:'מידע אישי'});
+ s.action(b.id,{action:'vote',plan,slot,vote:'yes'});
+ s.deleteProfile(a.id);
+ assert.equal(s.identify(a.token),undefined);assert.equal(s.identify(b.token)!.id,b.id);
+ assert.equal(s.row('SELECT count(*) n FROM messages')!.n,0);
+ assert.equal(s.row('SELECT id FROM circles WHERE id=?',circle),undefined);
+ assert.equal(s.snapshot(b.id).circles[0].id,other.circle);
+ assert.equal(s.snapshot(b.id).circles[0].members.length,1);s.db.close();
+});
+
+test('persistent storage survives reopening and database permissions are private',()=>{
+ const dir=mkdtempSync(join(tmpdir(),'havruta-persistence-')),path=join(dir,'app.sqlite');
+ try{
+   const first=new Store(path),a=first.register('מאיה');first.action(a.id,{action:'createCircle',name:'נשמר גם מחר'});first.db.close();
+   const second=new Store(path);assert.equal(second.identify(a.token)!.id,a.id);assert.equal(second.snapshot(a.id).circles[0].name,'נשמר גם מחר');
+   assert.equal(statSync(path).mode&0o777,0o600);second.db.close();
+ }finally{rmSync(dir,{recursive:true,force:true});}
+});
+
+test('server rounds coordinates, expires the area and rejects invalid values',()=>{
+ const {s,a,circle}=setup();s.action(a.id,{action:'presence',circle,area:{lat:32.081234,lon:34.791234}});
+ const m=s.snapshot(a.id).circles[0].members.find(m=>m.id===a.id)!;
+ assert.deepEqual(m.area,{lat:32.08,lon:34.79});assert.equal(m.place,null);
+ assert.throws(()=>s.action(a.id,{action:'presence',circle,area:{lat:200,lon:1}}),AppError);
+ s.run('UPDATE members SET until=? WHERE user=?',Date.now()-1,a.id);
+ assert.equal(s.snapshot(a.id).circles[0].members.find(m=>m.id===a.id)!.area,null);s.db.close();
 });

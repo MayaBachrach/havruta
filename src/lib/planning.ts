@@ -30,3 +30,24 @@ export function calendarFile(id: string, title: string, place: string, start: nu
 export function googleCalendarUrl(title: string, place: string, start: number, end: number) {
   return "https://calendar.google.com/calendar/render?" + new URLSearchParams({ action: "TEMPLATE", text: title, location: place, dates: `${utc(start)}/${utc(end)}`, details: "נפגשים עם חברותא" });
 }
+
+// Only coarse opt-in coordinates are accepted; no location history is kept.
+export function coarseArea(lat:number,lon:number){
+  if(!Number.isFinite(lat)||!Number.isFinite(lon)||Math.abs(lat)>90||Math.abs(lon)>180)throw new Error('Invalid coordinates');
+  return {lat:Math.round(lat*100)/100,lon:Math.round(lon*100)/100};
+}
+export function areaDistance(a:{lat:number;lon:number},b:{lat:number;lon:number}){
+  const rad=(value:number)=>value*Math.PI/180;
+  const h=Math.sin(rad(b.lat-a.lat)/2)**2+Math.cos(rad(a.lat))*Math.cos(rad(b.lat))*Math.sin(rad(b.lon-a.lon)/2)**2;
+  return 6371000*2*Math.asin(Math.sqrt(Math.min(1,h)));
+}
+export function nearbyAreas(members:Member[],now:number){
+  const active=members.filter(m=>m.area&&m.until&&m.until>now);
+  const groups:Member[][]=[];
+  for(const seed of active){
+    const group=[seed];
+    for(const candidate of active)if(candidate.id!==seed.id&&group.every(m=>areaDistance(m.area!,candidate.area!)<=2000))group.push(candidate);
+    if(group.length>1&&!groups.some(g=>g.length===group.length&&g.every(m=>group.some(x=>x.id===m.id))))groups.push(group);
+  }
+  return groups.filter(g=>!groups.some(other=>other.length>g.length&&g.every(m=>other.some(x=>x.id===m.id))));
+}

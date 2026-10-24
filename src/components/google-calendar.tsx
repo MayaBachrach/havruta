@@ -17,13 +17,13 @@ export default function GoogleCalendar({ circle, onVote, demo }: { circle?: Circ
     setLoading(true); setStatus('בודקים זמינות, בלי לקרוא את תוכן האירועים…'); setBusy(null);
     try {
       const start = new Date(), end = new Date(start.getTime() + 90 * 86400000);
-      const res = await fetch('https://www.googleapis.com/calendar/v3/freeBusy', { method: 'POST', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ timeMin: start.toISOString(), timeMax: end.toISOString(), items: [{ id: 'primary' }] }) });
+      const res = await fetch('https://www.googleapis.com/calendar/v3/freeBusy', { method: 'POST', signal: AbortSignal.timeout(15000), headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ timeMin: start.toISOString(), timeMax: end.toISOString(), items: [{ id: 'primary' }] }) });
       if (res.status === 401) { token.current = null; throw new Error('ההרשאה פגה. יש להתחבר מחדש.'); }
       if (!res.ok) throw new Error('לא הצלחנו לקרוא זמינות. בדקו שה־Calendar API מופעל ושההרשאה אושרה.');
       const result = await res.json(), calendar = result.calendars?.primary;
       if (!calendar || calendar.errors?.length || !Array.isArray(calendar.busy)) throw new Error('היומן לא זמין. לא שינינו את ההצבעות שלך.');
       setBusy(calendar.busy); setStatus('הזמינות נקראה מהיומן הראשי שלך. אפשר לבחור אילו תשובות לשתף.');
-    } catch (e) { setStatus(e instanceof Error ? e.message : 'החיבור לא הושלם.'); }
+    } catch (e) { setStatus(e instanceof Error && (e.name==='TimeoutError'||e.name==='AbortError') ? 'Google לא הגיב בזמן. לא שינינו את ההצבעות שלך. אפשר לנסות שוב.' : e instanceof Error ? e.message : 'החיבור לא הושלם.'); }
     finally { setLoading(false); }
   }
   function connect() {

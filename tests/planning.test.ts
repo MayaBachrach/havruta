@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { bestSlots, calendarFile, isFree, nearbyGroups } from '../src/lib/planning.ts';
+import { bestSlots, calendarFile, isFree, nearbyGroups, coarseArea, nearbyAreas } from '../src/lib/planning.ts';
 import type { Member, Slot } from '../src/lib/types.ts';
 test('ranking counts only current members and breaks ties by time', () => {
  const slots: Slot[] = [{ id:'late',start:20,end:30,votes:{a:'yes' as const,outsider:'yes' as const} },{id:'early',start:10,end:15,votes:{a:'yes' as const}}];
@@ -20,4 +20,15 @@ test('calendar export escapes injection and folds Hebrew at byte boundaries', ()
  assert.ok(result.includes('LOCATION:a\\,b\\;c'));
  assert.equal(result.split('\r\n').filter(l=>l==='END:VEVENT').length,1);
  for(const line of result.split('\r\n')) assert.ok(Buffer.byteLength(line)<=75);
+});
+
+test('coarse locations are rounded before sharing and invalid coordinates rejected',()=>{
+ assert.deepEqual(coarseArea(32.081234,34.791234),{lat:32.08,lon:34.79});
+ assert.throws(()=>coarseArea(91,0));assert.throws(()=>coarseArea(0,Infinity));
+});
+test('nearby area suggestions exclude expired check-ins and never bridge a distant chain',()=>{
+ const members:Member[]=[0,0.015,0.03].map((lon,i)=>({id:String(i),name:String(i),owner:false,place:null,area:{lat:0,lon},until:110}));
+ const groups=nearbyAreas(members,100);assert.ok(groups.length>=1);assert.ok(groups.every(g=>g.length===2));
+ assert.equal(nearbyAreas(members,111).length,0);
+ const distant=[members[0],{...members[1],area:{lat:40,lon:40}}];assert.equal(nearbyAreas(distant,100).length,0);
 });
