@@ -1,3 +1,4 @@
+import {createHash} from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { AppError, store } from '@/lib/store';
 export const runtime = 'nodejs';
@@ -9,7 +10,12 @@ function response(data: unknown, status = 200) {
 export async function GET(req: NextRequest) {
   try {
     const s = store(), me = s.identify(req.cookies.get(cookieName)?.value);
-    return response(me ? s.snapshot(String(me.id)) : { me: null, circles: [] });
+    if(!me)return response({me:null,circles:[]});
+    const snapshot=s.snapshot(String(me.id));
+    const etag='"'+createHash('sha256').update(JSON.stringify(snapshot)).digest('hex')+'"';
+    const matches=req.headers.get('if-none-match')?.split(',').some(value=>value.trim().replace(/^W\//,'')===etag||value.trim()==='*');
+    if(matches)return new NextResponse(null,{status:304,headers:{ETag:etag,'Cache-Control':'no-store',Vary:'Cookie'}});
+    const res=response(snapshot);res.headers.set('ETag',etag);return res;
   } catch { return response({ error: 'לא הצלחנו לטעון את הנתונים. נסו שוב.' }, 500); }
 }
 export async function POST(req: NextRequest) {

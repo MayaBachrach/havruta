@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { bestSlots, calendarFile, isFree, nearbyGroups, coarseArea, nearbyAreas } from '../src/lib/planning.ts';
+import { bestSlots, calendarFile, isFree, nearbyGroups, coarseArea, nearbyAreas, parseLocalDateTime } from '../src/lib/planning.ts';
 import type { Member, Slot } from '../src/lib/types.ts';
 test('ranking counts only current members and breaks ties by time', () => {
  const slots: Slot[] = [{ id:'late',start:20,end:30,votes:{a:'yes' as const,outsider:'yes' as const} },{id:'early',start:10,end:15,votes:{a:'yes' as const}}];
@@ -31,4 +31,14 @@ test('nearby area suggestions exclude expired check-ins and never bridge a dista
  const groups=nearbyAreas(members,100);assert.ok(groups.length>=1);assert.ok(groups.every(g=>g.length===2));
  assert.equal(nearbyAreas(members,111).length,0);
  const distant=[members[0],{...members[1],area:{lat:40,lon:40}}];assert.equal(nearbyAreas(distant,100).length,0);
+});
+
+test('local datetime validation rejects invalid dates and nonexistent DST times',()=>{
+ const previous=process.env.TZ;process.env.TZ='America/New_York';
+ try{
+  assert.ok(Number.isNaN(parseLocalDateTime('2026-03-08T02:30')));
+  assert.ok(Number.isFinite(parseLocalDateTime('2026-03-08T03:30')));
+  assert.ok(Number.isNaN(parseLocalDateTime('2026-02-30T18:00')));
+  assert.ok(Number.isNaN(parseLocalDateTime('not a date')));
+ }finally{if(previous===undefined)delete process.env.TZ;else process.env.TZ=previous;}
 });

@@ -51,3 +51,12 @@ export function nearbyAreas(members:Member[],now:number){
   }
   return groups.filter(g=>!groups.some(other=>other.length>g.length&&g.every(m=>other.some(x=>x.id===m.id))));
 }
+
+export function parseLocalDateTime(value:string):number {
+  if(!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value))return NaN;
+  const date=new Date(value),timestamp=date.getTime();
+  if(!Number.isFinite(timestamp))return NaN;
+  const roundTrip=new Date(timestamp-date.getTimezoneOffset()*60000).toISOString().slice(0,16);
+  // Reject nonexistent spring-forward times and normalized invalid dates instead of moving the meetup silently.
+  return roundTrip===value?timestamp:NaN;
+}

@@ -128,3 +128,26 @@ test('server rounds coordinates, expires the area and rejects invalid values',()
  s.run('UPDATE members SET until=? WHERE user=?',Date.now()-1,a.id);
  assert.equal(s.snapshot(a.id).circles[0].members.find(m=>m.id===a.id)!.area,null);s.db.close();
 });
+test('editing is creator-only, revision guarded and preserves notes safely',()=>{
+ const {s,a,b,plan}=setup();
+ const edit={action:'editPlan',plan,title:'קפה מעודכן',place:'אותו מקום',description:'מביאים קלפים\nבלי לחץ',revision:0};
+ assert.throws(()=>s.action(b.id,edit),(e:unknown)=>e instanceof AppError&&e.status===403);
+ s.action(a.id,edit);const changed=s.snapshot(a.id).circles[0].plans[0];
+ assert.equal(changed.description,edit.description);assert.equal(changed.revision,1);
+ assert.throws(()=>s.action(a.id,{...edit,title:'stale'}),(e:unknown)=>e instanceof AppError&&e.status===409);
+ assert.equal(s.snapshot(a.id).circles[0].plans[0].title,'קפה מעודכן');s.db.close();
+});
+test('confirmed venue changes require acknowledgment and reset attendance, title-only changes do not',()=>{
+ const {s,a,b,plan,slot}=setup();s.action(a.id,{action:'confirm',plan,slot});s.action(b.id,{action:'attendance',plan,response:'yes'});
+ const p=s.snapshot(a.id).circles[0].plans[0];
+ const edit={action:'editPlan',plan,title:p.title,place:p.place,description:'',revision:p.revision};
+ assert.throws(()=>s.action(a.id,edit),AppError);
+ s.action(a.id,{...edit,title:'שם חדש',calendarAcknowledged:true});
+ assert.equal(s.snapshot(a.id).circles[0].plans[0].attendance[b.id],'yes');
+ s.action(a.id,{...edit,place:'מקום אחר',revision:p.revision+1,calendarAcknowledged:true});
+ assert.deepEqual(s.snapshot(a.id).circles[0].plans[0].attendance,{});s.db.close();
+});
+test('overlong descriptions fail atomically without changing the revision',()=>{
+ const {s,a,plan}=setup();assert.throws(()=>s.action(a.id,{action:'editPlan',plan,title:'title',place:'place',description:'x'.repeat(501),revision:0}),AppError);
+ assert.equal(s.snapshot(a.id).circles[0].plans[0].revision,0);s.db.close();
+});

@@ -16,3 +16,16 @@ Further checks cover idempotent replay/conflict handling and full guest-profile 
 Persistence verification closes and reopens a real temporary SQLite file, checks the same identity/group remains available, and checks mode 0600. The HTTP smoke now additionally exercises idempotent plan creation, explicit attendance and self-profile deletion through the actual production API.
 
 Coarse-location tests check client/server rounding, invalid coordinate rejection, expiry and the absence of transitive false grouping (A near B and B near C never implies all three are near each other). Browser permission UI remains unverified; location sharing is disabled in demo mode.
+
+## Browser checks during 0.4
+
+The managed production preview became accessible. On desktop, cloud-browser checks observed:
+
+- Welcome and explicitly labeled fictional demo render correctly.
+- A proposal draft restores its title and notes after closing/reopening the modal.
+- Keyboard date editing produces an overlap warning for the correct confirmed demo meetup.
+- Search by “קפה” returns the matching meetup; creator editing updates its title visibly.
+- A new chat message is displayed in the conversation.
+- The weekly agenda opens and the selected day's meetup is discoverable.
+
+Two defects were found: UUID creation failed in the insecure preview context, and a search query remained active when opening an unrelated meetup from the agenda. Both source fixes are included. UUID generation has dedicated tests; preview revalidation of the updated bundle is pending because the preview continued serving an older app chunk after rebuild/restart. No mobile, screen-reader, real OAuth or real geolocation browser pass is claimed.

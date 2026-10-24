@@ -39,6 +39,10 @@ export class Store {
     `);
     // Additive migration: existing installations retain their groups and votes.
     if(!this.rows('PRAGMA table_info(members)').some(column=>column.name==='area'))this.db.exec('ALTER TABLE members ADD COLUMN area TEXT');
+    const planColumns=this.rows('PRAGMA table_info(plans)').map(column=>column.name);
+    if(!planColumns.includes('description'))this.db.exec("ALTER TABLE plans ADD COLUMN description TEXT NOT NULL DEFAULT ''");
+    if(!planColumns.includes('revision'))this.db.exec('ALTER TABLE plans ADD COLUMN revision INTEGER NOT NULL DEFAULT 0');
+    if(!planColumns.includes('updated'))this.db.exec('ALTER TABLE plans ADD COLUMN updated INTEGER NOT NULL DEFAULT 0');
   }
   rows(sql: string, ...args: (string | number | null)[]) { return this.db.prepare(sql).all(...args) as Row[]; }
   row(sql: string, ...args: (string | number | null)[]) { return this.db.prepare(sql).get(...args) as Row | undefined; }
@@ -85,7 +89,7 @@ export class Store {
     const me = this.row('SELECT id,name FROM users WHERE id=?', user)!;
     const circles: Circle[] = this.rows('SELECT c.* FROM circles c JOIN members m ON m.circle=c.id WHERE m.user=? ORDER BY c.rowid DESC', user).map(c => {
       const members = this.rows('SELECT u.id,u.name,m.place,m.until,m.area FROM members m JOIN users u ON u.id=m.user WHERE m.circle=? ORDER BY u.created', c.id).map(m => ({ id: String(m.id), name: String(m.name), owner: m.id === c.owner, place: m.place as string | null, area: m.area?JSON.parse(String(m.area)):null, until: m.until as number | null }));
-      const plans: Plan[] = this.rows('SELECT * FROM plans WHERE circle=? ORDER BY created DESC LIMIT 50', c.id).map(p => ({ id: String(p.id), title: String(p.title), place: String(p.place), vibe: String(p.vibe), creator: String(p.creator), created: Number(p.created), confirmed: p.confirmed as string | null, cancelled: !!p.cancelled, attendance: Object.fromEntries(this.rows('SELECT a.user,a.response FROM attendance a JOIN members m ON m.user=a.user AND m.circle=? WHERE plan=?',c.id,p.id).map(a=>[a.user,a.response])) as Record<string, Vote>, chatExpires: this.expires(p), slots: this.rows('SELECT * FROM slots WHERE plan=? ORDER BY start', p.id).map(s => ({ id: String(s.id), start: Number(s.start), end: Number(s.end), votes: Object.fromEntries(this.rows('SELECT v.user,v.vote FROM votes v JOIN members m ON m.user=v.user AND m.circle=? WHERE slot=?', c.id, s.id).map(v => [v.user, v.vote])) as Record<string, Vote> })), messages: this.rows('SELECT * FROM (SELECT m.id,m.author,u.name,m.text,m.created FROM messages m JOIN users u ON u.id=m.author WHERE m.plan=? ORDER BY m.id DESC LIMIT 100) ORDER BY id', p.id).map(m => ({ id: Number(m.id), author: String(m.author), name: String(m.name), text: String(m.text), created: Number(m.created) })) }));
+      const plans: Plan[] = this.rows('SELECT * FROM plans WHERE circle=? ORDER BY created DESC LIMIT 50', c.id).map(p => ({ id: String(p.id), title: String(p.title), description:String(p.description||''),revision:Number(p.revision||0),updated:Number(p.updated||p.created), place: String(p.place), vibe: String(p.vibe), creator: String(p.creator), created: Number(p.created), confirmed: p.confirmed as string | null, cancelled: !!p.cancelled, attendance: Object.fromEntries(this.rows('SELECT a.user,a.response FROM attendance a JOIN members m ON m.user=a.user AND m.circle=? WHERE plan=?',c.id,p.id).map(a=>[a.user,a.response])) as Record<string, Vote>, chatExpires: this.expires(p), slots: this.rows('SELECT * FROM slots WHERE plan=? ORDER BY start', p.id).map(s => ({ id: String(s.id), start: Number(s.start), end: Number(s.end), votes: Object.fromEntries(this.rows('SELECT v.user,v.vote FROM votes v JOIN members m ON m.user=v.user AND m.circle=? WHERE slot=?', c.id, s.id).map(v => [v.user, v.vote])) as Record<string, Vote> })), messages: this.rows('SELECT * FROM (SELECT m.id,m.author,u.name,m.text,m.created FROM messages m JOIN users u ON u.id=m.author WHERE m.plan=? ORDER BY m.id DESC LIMIT 100) ORDER BY id', p.id).map(m => ({ id: Number(m.id), author: String(m.author), name: String(m.name), text: String(m.text), created: Number(m.created) })) }));
       return { id: String(c.id), name: String(c.name), owner: String(c.owner), invite: c.owner === user ? String(c.invite) : '', members, plans };
     });
     return { me: { id: String(me.id), name: String(me.name) }, circles, favorites: this.rows("SELECT id,name,vibe FROM favorites WHERE user=? ORDER BY rowid DESC", user).map(f => ({id: String(f.id), name: String(f.name), vibe: String(f.vibe)})) };
@@ -187,9 +191,21 @@ export class Store {
             return { start, end };
           });
           if (new Set(slots.map(s => s.start)).size !== slots.length) throw new AppError('יש הצעות זמן כפולות.');
-          const id = randomUUID(); this.run('INSERT INTO plans(id,circle,title,place,vibe,creator,created) VALUES(?,?,?,?,?,?,?)', id, c, text(data.title), text(data.place), text(data.vibe, 30), user, Date.now());
+          const id = randomUUID(),created=Date.now();
+          const description=data.description===undefined||data.description===''?'':text(data.description,500);
+          this.run('INSERT INTO plans(id,circle,title,place,vibe,creator,created,description,updated) VALUES(?,?,?,?,?,?,?,?,?)', id, c, text(data.title), text(data.place), text(data.vibe, 30), user, created,description,created);
           for (const s of slots) { const sid = randomUUID(); this.run('INSERT INTO slots VALUES(?,?,?,?)', sid, id, s.start, s.end); this.run('INSERT INTO votes VALUES(?,?,?)', sid, user, 'yes'); }
           return { plan: id };
+        }
+        case 'editPlan': {
+          const p=this.plan(user,data.plan);
+          if(p.creator!==user)throw new AppError('רק יוצר המפגש יכול לערוך את הפרטים.',403);
+          if(p.cancelled||this.expires(p)<=Date.now())throw new AppError('המפגש הסתיים ואי אפשר לערוך אותו.',409);
+          if(!Number.isInteger(data.revision)||Number(data.revision)!==Number(p.revision))throw new AppError('פרטי המפגש השתנו מאז פתיחת העריכה. סגרו ופתחו מחדש כדי לראות את הגרסה המעודכנת.',409);
+          const title=text(data.title),place=text(data.place),description=data.description===undefined||data.description===''?'':text(data.description,500);
+          if(p.confirmed&&data.calendarAcknowledged!==true)throw new AppError('יש לאשר שיומנים חיצוניים אינם מתעדכנים אוטומטית.');
+          if(p.confirmed&&p.place!==place)this.run('DELETE FROM attendance WHERE plan=?',p.id);
+          this.run('UPDATE plans SET title=?,place=?,description=?,revision=revision+1,updated=? WHERE id=?',title,place,description,Date.now(),p.id);break;
         }
         case 'attendance': {
           const p=this.plan(user,data.plan);
@@ -211,12 +227,12 @@ export class Store {
           if (p.creator !== user) throw new AppError('רק יוצר המפגש יכול לסגור שעה.', 403);
           if (p.cancelled || p.confirmed || this.expires(p) <= Date.now()) throw new AppError('המפגש כבר נסגר.', 409);
           if (!this.row('SELECT id FROM slots WHERE id=? AND plan=? AND start>?', text(data.slot), p.id, Date.now())) throw new AppError('הזמן שנבחר כבר חלף.');
-          this.run('UPDATE plans SET confirmed=? WHERE id=?', text(data.slot), p.id); break;
+          this.run('UPDATE plans SET confirmed=?,revision=revision+1,updated=? WHERE id=?', text(data.slot),Date.now(), p.id); break;
         }
         case 'cancel': {
           const p = this.plan(user, data.plan);
           if (p.creator !== user) throw new AppError('רק יוצר המפגש יכול לבטל.', 403);
-          this.run('UPDATE plans SET cancelled=1 WHERE id=?', p.id); this.run('DELETE FROM messages WHERE plan=?', p.id); break;
+          this.run('UPDATE plans SET cancelled=1,revision=revision+1,updated=? WHERE id=?',Date.now(), p.id); this.run('DELETE FROM messages WHERE plan=?', p.id); break;
         }
         case 'message': {
           const p = this.plan(user, data.plan);

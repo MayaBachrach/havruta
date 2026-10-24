@@ -23,6 +23,8 @@ npm start
 
 ## Working features
 
+- Research-led usability pass: per-tab proposal drafts, Hebrew-friendly search, personal response shortcuts, cross-circle conflict warnings, larger targets and explicit sync status.
+- Optional meetup notes and revision-guarded creator editing; a confirmed venue change resets attendance for explicit reconfirmation.
 - Weekly agenda across all circles, with explicit attendance status and calendar-day navigation that preserves local days across DST.
 - Hebrew RTL dashboard, responsive mobile navigation, light/dark themes, empty/error/loading states.
 - Profile deletion clears owned circles, authored plans/messages, votes, check-ins and saved places; backups have separate retention.
